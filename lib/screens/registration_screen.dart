@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:tt9_chat_app_st/screens/chat_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
   static const id = '/registrationScreen';
@@ -9,6 +11,11 @@ class RegistrationScreen extends StatefulWidget {
 }
 
 class RegistrationScreenState extends State<RegistrationScreen> {
+  String? _email;
+  String? _password;
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -19,9 +26,11 @@ class RegistrationScreenState extends State<RegistrationScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Container(
-              height: 200.0,
-              child: Image.asset('images/logo.png'),
+            Flexible(
+              child: Container(
+                height: 200.0,
+                child: Image.asset('images/logo.png'),
+              ),
             ),
             SizedBox(
               height: 48.0,
@@ -29,6 +38,7 @@ class RegistrationScreenState extends State<RegistrationScreen> {
             TextField(
               onChanged: (value) {
                 //Do something with the user input.
+                _email = value;
               },
               decoration: InputDecoration(
                 hintText: 'Enter your email',
@@ -53,6 +63,7 @@ class RegistrationScreenState extends State<RegistrationScreen> {
             TextField(
               onChanged: (value) {
                 //Do something with the user input.
+                _password = value;
               },
               decoration: InputDecoration(
                 hintText: 'Enter your password',
@@ -83,6 +94,21 @@ class RegistrationScreenState extends State<RegistrationScreen> {
                 child: MaterialButton(
                   onPressed: () {
                     //Implement registration functionality.
+                    if (_email != null && _password != null) {
+                      _auth
+                          .createUserWithEmailAndPassword(
+                        email: _email!,
+                        password: _password!,
+                      )
+                          .then(
+                        (value) {
+                          print(value.user!.email);
+                          Navigator.pushNamed(context, ChatScreen.id);
+                        },
+                      ).catchError(
+                        (err) => print(err),
+                      );
+                    }
                   },
                   minWidth: 200.0,
                   height: 42.0,
