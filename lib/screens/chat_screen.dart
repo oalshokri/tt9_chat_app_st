@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:tt9_chat_app_st/screens/login_screen.dart';
 
 import '../constants.dart';
 
@@ -61,8 +62,9 @@ class ChatScreenState extends State<ChatScreen> {
               icon: Icon(Icons.close),
               onPressed: () {
                 //Implement logout functionality
-                // getMessages();
-                streamMessages();
+                _auth.signOut();
+                Navigator.pushNamedAndRemoveUntil(
+                    context, LoginScreen.id, (route) => false);
               }),
         ],
         title: Text('⚡️Chat'),
