@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -13,6 +14,9 @@ class ChatScreen extends StatefulWidget {
 
 class ChatScreenState extends State<ChatScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore db = FirebaseFirestore.instance;
+  TextEditingController messageCnt = TextEditingController();
+
   User? user;
 
   void getUser() {
@@ -23,9 +27,27 @@ class ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // void getMessages() {
+  //   db.collection('messages').get().then((value) {
+  //     final docs = value.docs;
+  //     for (var message in docs) {
+  //       print(message.data());
+  //     }
+  //   });
+  // }
+
+  void streamMessages() async {
+    await for (var messages in db.collection('messages').snapshots()) {
+      for (var message in messages.docs) {
+        print(message.data());
+      }
+    }
+  }
+
   @override
   void initState() {
     getUser();
+    // getMessages();
     super.initState();
   }
 
@@ -39,6 +61,8 @@ class ChatScreenState extends State<ChatScreen> {
               icon: Icon(Icons.close),
               onPressed: () {
                 //Implement logout functionality
+                // getMessages();
+                streamMessages();
               }),
         ],
         title: Text('⚡️Chat'),
@@ -49,6 +73,31 @@ class ChatScreenState extends State<ChatScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            StreamBuilder(
+                stream: db
+                    .collection('messages')
+                    .orderBy('time', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    final messages = snapshot.data!.docs;
+                    return Expanded(
+                      child: ListView.builder(
+                          reverse: true,
+                          padding: EdgeInsets.all(12),
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) {
+                            return BubbleMessage(
+                              message: messages[index].data()['text'],
+                              sender: messages[index].data()['sender'],
+                              isMe: messages[index].data()['sender'] ==
+                                  user!.email,
+                            );
+                          }),
+                    );
+                  }
+                  return Text('loading');
+                }),
             Container(
               decoration: kMessageContainerDecoration,
               child: Row(
@@ -56,6 +105,7 @@ class ChatScreenState extends State<ChatScreen> {
                 children: <Widget>[
                   Expanded(
                     child: TextField(
+                      controller: messageCnt,
                       onChanged: (value) {
                         //Do something with the user input.
                       },
@@ -65,6 +115,15 @@ class ChatScreenState extends State<ChatScreen> {
                   TextButton(
                     onPressed: () {
                       //Implement send functionality.
+                      db.collection('messages').add({
+                        'text': messageCnt.text,
+                        'sender': user!.email,
+                        'time': DateTime.now()
+                      }).then((value) {
+                        messageCnt.clear();
+                      }).catchError((err) {
+                        print(err);
+                      });
                     },
                     child: Text(
                       'Send',
@@ -76,6 +135,57 @@ class ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class BubbleMessage extends StatelessWidget {
+  const BubbleMessage({
+    super.key,
+    required this.message,
+    required this.sender,
+    required this.isMe,
+  });
+
+  final String message;
+  final String sender;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        crossAxisAlignment:
+            isMe ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+        children: [
+          Text(
+            sender,
+            style: TextStyle(color: Colors.black54),
+          ),
+          Material(
+            elevation: 5,
+            color: isMe ? Colors.lightBlueAccent : Colors.white,
+            borderRadius: isMe
+                ? BorderRadius.only(
+                    topRight: Radius.circular(24),
+                    bottomLeft: Radius.circular(24),
+                    bottomRight: Radius.circular(24))
+                : BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    bottomLeft: Radius.circular(24),
+                    bottomRight: Radius.circular(24)),
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: Text(
+                message,
+                style: TextStyle(
+                    fontSize: 18, color: isMe ? Colors.white : Colors.black54),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

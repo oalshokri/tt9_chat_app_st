@@ -1,4 +1,6 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:tt9_chat_app_st/screens/chat_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   static const id = '/loginScreen';
@@ -9,6 +11,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class LoginScreenState extends State<LoginScreen> {
+  late String email;
+  late String password;
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -32,8 +39,10 @@ class LoginScreenState extends State<LoginScreen> {
               height: 48.0,
             ),
             TextField(
+              keyboardType: TextInputType.emailAddress,
               onChanged: (value) {
                 //Do something with the user input.
+                email = value;
               },
               decoration: InputDecoration(
                 hintText: 'Enter your email',
@@ -58,8 +67,10 @@ class LoginScreenState extends State<LoginScreen> {
               height: 8.0,
             ),
             TextField(
+              obscureText: true,
               onChanged: (value) {
                 //Do something with the user input.
+                password = value;
               },
               decoration: InputDecoration(
                 hintText: 'Enter your password.',
@@ -92,6 +103,22 @@ class LoginScreenState extends State<LoginScreen> {
                 child: MaterialButton(
                   onPressed: () {
                     //Implement login functionality.
+
+                    _auth
+                        .signInWithEmailAndPassword(
+                          email: email,
+                          password: password,
+                        )
+                        .then(
+                          (value) => Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            ChatScreen.id,
+                            (route) => false,
+                          ),
+                        )
+                        .catchError(
+                          (err) => print(err),
+                        );
                   },
                   minWidth: 200.0,
                   height: 42.0,
