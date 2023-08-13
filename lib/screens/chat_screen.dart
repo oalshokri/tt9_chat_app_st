@@ -19,6 +19,7 @@ class ChatScreenState extends State<ChatScreen> {
   TextEditingController messageCnt = TextEditingController();
 
   User? user;
+  bool isTyping = false;
 
   void getUser() {
     user = _auth.currentUser;
@@ -43,6 +44,10 @@ class ChatScreenState extends State<ChatScreen> {
         print(message.data());
       }
     }
+  }
+
+  void removeTyper() async {
+    await db.collection('typing').doc(user?.email).delete();
   }
 
   @override
@@ -75,6 +80,16 @@ class ChatScreenState extends State<ChatScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
+            StreamBuilder(
+                stream: db.collection('typing').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                    return Text(
+                        '${snapshot.data?.docs.first.get('email')}typing');
+                  } else {
+                    return SizedBox();
+                  }
+                }),
             StreamBuilder(
                 stream: db
                     .collection('messages')
@@ -109,7 +124,16 @@ class ChatScreenState extends State<ChatScreen> {
                     child: TextField(
                       controller: messageCnt,
                       onChanged: (value) {
-                        //Do something with the user input.
+                        if (user?.email != null && isTyping)
+                          db
+                              .collection('typing')
+                              .doc(user?.email ?? '')
+                              .set({'email': user?.email});
+                        isTyping = false;
+                        if (value == '') {
+                          removeTyper();
+                          isTyping = false;
+                        }
                       },
                       decoration: kMessageTextFieldDecoration,
                     ),
