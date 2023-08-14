@@ -124,15 +124,15 @@ class ChatScreenState extends State<ChatScreen> {
                     child: TextField(
                       controller: messageCnt,
                       onChanged: (value) {
-                        if (user?.email != null && isTyping)
+                        if (user?.email != null) {
                           db
                               .collection('typing')
                               .doc(user?.email ?? '')
                               .set({'email': user?.email});
-                        isTyping = false;
+                        }
+
                         if (value == '') {
                           removeTyper();
-                          isTyping = false;
                         }
                       },
                       decoration: kMessageTextFieldDecoration,
