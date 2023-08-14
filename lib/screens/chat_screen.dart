@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tt9_chat_app_st/screens/login_screen.dart';
 
 import '../constants.dart';
@@ -20,6 +23,7 @@ class ChatScreenState extends State<ChatScreen> {
 
   User? user;
   bool isTyping = false;
+  Timer? _timer;
 
   void getUser() {
     user = _auth.currentUser;
@@ -59,107 +63,178 @@ class ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: null,
-        actions: <Widget>[
-          IconButton(
-              icon: Icon(Icons.close),
-              onPressed: () {
-                //Implement logout functionality
-                _auth.signOut();
-                Navigator.pushNamedAndRemoveUntil(
-                    context, LoginScreen.id, (route) => false);
-              }),
-        ],
-        title: Text('⚡️Chat'),
-        backgroundColor: Colors.lightBlueAccent,
-      ),
-      body: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            StreamBuilder(
-                stream: db.collection('typing').snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                    return Text(
-                        '${snapshot.data?.docs.first.get('email')}typing');
-                  } else {
-                    return SizedBox();
-                  }
+    return WillPopScope(
+      onWillPop: () async {
+        removeTyper(); // Action to perform on back pressed
+        SystemChannels.platform.invokeMethod('SystemNavigator.pop');
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          centerTitle: false,
+          actions: <Widget>[
+            IconButton(
+                icon: Icon(Icons.close),
+                onPressed: () {
+                  //Implement logout functionality
+                  Navigator.pushNamedAndRemoveUntil(
+                      context, LoginScreen.id, (route) => false);
+                  removeTyper();
+                  _auth.signOut();
                 }),
-            StreamBuilder(
-                stream: db
-                    .collection('messages')
-                    .orderBy('time', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    final messages = snapshot.data!.docs;
-                    return Expanded(
-                      child: ListView.builder(
-                          reverse: true,
-                          padding: EdgeInsets.all(12),
-                          itemCount: messages.length,
-                          itemBuilder: (context, index) {
-                            return BubbleMessage(
-                              message: messages[index].data()['text'],
-                              sender: messages[index].data()['sender'],
-                              isMe: messages[index].data()['sender'] ==
-                                  user!.email,
-                            );
-                          }),
-                    );
-                  }
-                  return Text('loading');
-                }),
-            Container(
-              decoration: kMessageContainerDecoration,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: <Widget>[
-                  Expanded(
-                    child: TextField(
-                      controller: messageCnt,
-                      onChanged: (value) {
-                        if (user?.email != null) {
-                          db
-                              .collection('typing')
-                              .doc(user?.email ?? '')
-                              .set({'email': user?.email});
-                        }
-
-                        if (value == '') {
-                          removeTyper();
-                        }
-                      },
-                      decoration: kMessageTextFieldDecoration,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      //Implement send functionality.
-                      db.collection('messages').add({
-                        'text': messageCnt.text,
-                        'sender': user!.email,
-                        'time': DateTime.now()
-                      }).then((value) {
-                        messageCnt.clear();
-                      }).catchError((err) {
-                        print(err);
-                      });
-                    },
-                    child: Text(
-                      'Send',
-                      style: kSendButtonTextStyle,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('⚡️Chat'),
+              StreamBuilder(
+                  stream: db.collection('typing').snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                      final typers = snapshot.data?.docs;
+                      String names = '';
+                      for (var item in typers!) {
+                        if (user!.email != item.get('email')) {
+                          if (names.isNotEmpty) {
+                            names = '$names, ${item.get('email')}';
+                          } else {
+                            names = item.get('email');
+                          }
+                        }
+                      }
+                      if (names.isNotEmpty) {
+                        names = '$names Typing';
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(left: 24.0),
+                        child: SizedBox(
+                          height: 12,
+                          child: SingleChildScrollView(
+                            child: Text(
+                              '$names',
+                              style: const TextStyle(fontSize: 10),
+                            ),
+                          ),
+                          // child: ListView.separated(
+                          //   scrollDirection: Axis.horizontal,
+                          //   itemBuilder: (context, index) {
+                          //     if (typers[index].get('email') == user!.email) {
+                          //       return const SizedBox();
+                          //     }
+                          //     if (index == typers.length - 1) {
+                          //       return Text(
+                          //         '${typers[index].get('email')} typing',
+                          //         style: const TextStyle(fontSize: 10),
+                          //       );
+                          //     }
+                          //     return Text(
+                          //       '${typers[index].get('email')}',
+                          //       style: const TextStyle(fontSize: 10),
+                          //     );
+                          //   },
+                          //   separatorBuilder:
+                          //       (BuildContext context, int index) {
+                          //     return const Text(
+                          //       ', ',
+                          //       style: TextStyle(fontSize: 10),
+                          //     );
+                          //   },
+                          //   itemCount: typers!.length,
+                          // ),
+                        ),
+                      );
+                    } else {
+                      return const Text(
+                        '',
+                        style: TextStyle(fontSize: 10),
+                      );
+                    }
+                  }),
+            ],
+          ),
+          backgroundColor: Colors.lightBlueAccent,
+        ),
+        body: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              StreamBuilder(
+                  stream: db
+                      .collection('messages')
+                      .orderBy('time', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      final messages = snapshot.data!.docs;
+                      return Expanded(
+                        child: ListView.builder(
+                            reverse: true,
+                            padding: EdgeInsets.all(12),
+                            itemCount: messages.length,
+                            itemBuilder: (context, index) {
+                              return BubbleMessage(
+                                message: messages[index].data()['text'],
+                                sender: messages[index].data()['sender'],
+                                isMe: messages[index].data()['sender'] ==
+                                    user!.email,
+                              );
+                            }),
+                      );
+                    }
+                    return Text('loading');
+                  }),
+              Container(
+                decoration: kMessageContainerDecoration,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    Expanded(
+                      child: TextField(
+                        controller: messageCnt,
+                        onChanged: (value) {
+                          print('111111');
+                          if (_timer?.isActive ?? false) _timer!.cancel();
+                          _timer = Timer(const Duration(milliseconds: 500), () {
+                            print('22222 inside');
+                            if (user?.email != null && value.isNotEmpty) {
+                              db
+                                  .collection('typing')
+                                  .doc(user?.email ?? '')
+                                  .set({'email': user?.email});
+                            }
+                            if (value.isEmpty) {
+                              removeTyper();
+                            }
+                          });
+                        },
+                        decoration: kMessageTextFieldDecoration,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        //Implement send functionality.
+                        db.collection('messages').add({
+                          'text': messageCnt.text,
+                          'sender': user!.email,
+                          'time': DateTime.now()
+                        }).then((value) {
+                          messageCnt.clear();
+                          removeTyper();
+                        }).catchError((err) {
+                          print(err);
+                        });
+                      },
+                      child: Text(
+                        'Send',
+                        style: kSendButtonTextStyle,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
