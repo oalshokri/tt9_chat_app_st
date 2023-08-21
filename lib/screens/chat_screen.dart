@@ -2,11 +2,13 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tt9_chat_app_st/screens/login_screen.dart';
 
 import '../constants.dart';
+import 'notification_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   static const id = '/chatScreen';
@@ -24,6 +26,8 @@ class ChatScreenState extends State<ChatScreen> {
   User? user;
   bool isTyping = false;
   Timer? _timer;
+
+  List<RemoteMessage> notifications = [];
 
   void getUser() {
     user = _auth.currentUser;
@@ -54,10 +58,24 @@ class ChatScreenState extends State<ChatScreen> {
     await db.collection('typing').doc(user?.email).delete();
   }
 
+  void getNotifications() {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (message.notification != null) {
+        setState(() {
+          notifications.add(message);
+        });
+
+        // print(
+        //     'Message also contained a notification: ${message.notification!.title}');
+      }
+    });
+  }
+
   @override
   void initState() {
     getUser();
     // getMessages();
+    getNotifications();
     super.initState();
   }
 
@@ -65,7 +83,8 @@ class ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        removeTyper(); // Action to perform on back pressed
+        removeTyper();
+        print('clicked from iphone');
         SystemChannels.platform.invokeMethod('SystemNavigator.pop');
         return false;
       },
@@ -73,6 +92,39 @@ class ChatScreenState extends State<ChatScreen> {
         appBar: AppBar(
           centerTitle: false,
           actions: <Widget>[
+            TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) {
+                    return NotificationsScreen(
+                      notifications: notifications,
+                    );
+                  })).then((value) => setState(() {
+                        // notifications.clear();
+                      }));
+                },
+                child: Stack(
+                  children: [
+                    Icon(
+                      Icons.notifications,
+                      color: Colors.white,
+                    ),
+                    notifications.isNotEmpty
+                        ? Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Text(
+                              '${notifications.length}',
+                              style:
+                                  TextStyle(color: Colors.white, fontSize: 10),
+                            ),
+                          )
+                        : SizedBox(),
+                  ],
+                )),
             IconButton(
                 icon: Icon(Icons.close),
                 onPressed: () {
