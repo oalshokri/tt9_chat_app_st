@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:tt9_chat_app_st/models/my_notification.dart';
 import 'package:tt9_chat_app_st/screens/login_screen.dart';
 
 import '../constants.dart';
@@ -27,7 +28,7 @@ class ChatScreenState extends State<ChatScreen> {
   bool isTyping = false;
   Timer? _timer;
 
-  List<RemoteMessage> notifications = [];
+  List<MyNotification> notifications = [];
 
   void getUser() {
     user = _auth.currentUser;
@@ -62,13 +63,23 @@ class ChatScreenState extends State<ChatScreen> {
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       if (message.notification != null) {
         setState(() {
-          notifications.add(message);
+          notifications.add(MyNotification(message: message));
         });
 
         // print(
         //     'Message also contained a notification: ${message.notification!.title}');
       }
     });
+  }
+
+  int unreadNotificationCount() {
+    int count = 0;
+    for (var item in notifications) {
+      if (!item.isRead) {
+        count++;
+      }
+    }
+    return count;
   }
 
   @override
@@ -108,7 +119,7 @@ class ChatScreenState extends State<ChatScreen> {
                       Icons.notifications,
                       color: Colors.white,
                     ),
-                    notifications.isNotEmpty
+                    unreadNotificationCount() > 0
                         ? Container(
                             padding: EdgeInsets.symmetric(
                                 horizontal: 4, vertical: 2),
@@ -117,7 +128,7 @@ class ChatScreenState extends State<ChatScreen> {
                               borderRadius: BorderRadius.circular(15),
                             ),
                             child: Text(
-                              '${notifications.length}',
+                              '${unreadNotificationCount()}',
                               style:
                                   TextStyle(color: Colors.white, fontSize: 10),
                             ),
